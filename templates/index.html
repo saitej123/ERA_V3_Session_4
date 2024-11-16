@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MNIST Model Comparison</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>MNIST Model Comparison</h1>
+        
+        <div class="model-configs">
+            <div class="model-config">
+                <h2>Model 1</h2>
+                <div class="config-group">
+                    <label>Kernel 1:</label>
+                    <input type="number" id="m1-k1" value="16">
+                </div>
+                <div class="config-group">
+                    <label>Kernel 2:</label>
+                    <input type="number" id="m1-k2" value="32">
+                </div>
+                <div class="config-group">
+                    <label>Kernel 3:</label>
+                    <input type="number" id="m1-k3" value="64">
+                </div>
+                <div class="config-group">
+                    <label>Batch Size:</label>
+                    <input type="number" id="m1-batch" value="32">
+                </div>
+                <div class="config-group">
+                    <label>Epochs:</label>
+                    <input type="number" id="m1-epochs" value="10">
+                </div>
+                <div class="config-group">
+                    <label>Optimizer:</label>
+                    <select id="m1-optimizer">
+                        <option value="adam">Adam</option>
+                        <option value="sgd">SGD</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="model-config">
+                <h2>Model 2</h2>
+                <div class="config-group">
+                    <label>Kernel 1:</label>
+                    <input type="number" id="m2-k1" value="8">
+                </div>
+                <div class="config-group">
+                    <label>Kernel 2:</label>
+                    <input type="number" id="m2-k2" value="8">
+                </div>
+                <div class="config-group">
+                    <label>Kernel 3:</label>
+                    <input type="number" id="m2-k3" value="8">
+                </div>
+                <div class="config-group">
+                    <label>Batch Size:</label>
+                    <input type="number" id="m2-batch" value="32">
+                </div>
+                <div class="config-group">
+                    <label>Epochs:</label>
+                    <input type="number" id="m2-epochs" value="10">
+                </div>
+                <div class="config-group">
+                    <label>Optimizer:</label>
+                    <select id="m2-optimizer">
+                        <option value="adam">Adam</option>
+                        <option value="sgd">SGD</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        
+        <button id="train-btn" onclick="startTraining()">Start Training</button>
+        
+        <div id="status" class="status"></div>
+        
+        <div class="charts">
+            <canvas id="lossChart"></canvas>
+            <canvas id="accuracyChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        let lossChart, accuracyChart;
+
+        function initializeCharts() {
+            const lossCtx = document.getElementById('lossChart').getContext('2d');
+            const accCtx = document.getElementById('accuracyChart').getContext('2d');
+
+            lossChart = new Chart(lossCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'Model 1 Loss',
+                            borderColor: 'rgb(75, 192, 192)',
+                            data: []
+                        },
+                        {
+                            label: 'Model 2 Loss',
+                            borderColor: 'rgb(255, 99, 132)',
+                            data: []
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Training Loss Comparison'
+                        }
+                    }
+                }
+            });
+
+            accuracyChart = new Chart(accCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'Model 1 Accuracy',
+                            borderColor: 'rgb(54, 162, 235)',
+                            data: []
+                        },
+                        {
+                            label: 'Model 2 Accuracy',
+                            borderColor: 'rgb(255, 159, 64)',
+                            data: []
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Training Accuracy Comparison'
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateCharts(data) {
+            if (!data || !data.model1 || !data.model2) {
+                console.error('Invalid data received:', data);
+                return;
+            }
+
+            const epochs = Array.from(
+                {length: Math.max(data.model1.length, data.model2.length)}, 
+                (_, i) => i + 1
+            );
+
+            lossChart.data.labels = epochs;
+            accuracyChart.data.labels = epochs;
+
+            lossChart.data.datasets[0].data = data.model1.map(log => log.loss);
+            lossChart.data.datasets[1].data = data.model2.map(log => log.loss);
+
+            accuracyChart.data.datasets[0].data = data.model1.map(log => log.accuracy);
+            accuracyChart.data.datasets[1].data = data.model2.map(log => log.accuracy);
+
+            lossChart.update();
+            accuracyChart.update();
+
+            // Update comparison metrics if available
+            if (data.comparison) {
+                const statusEl = document.getElementById('status');
+                statusEl.innerHTML = `
+                    <h3>Model Comparison Results:</h3>
+                    <p>Accuracy Difference: ${(data.comparison.accuracy_diff * 100).toFixed(2)}%
+                       ${data.comparison.accuracy_diff > 0 ? '(Model 1 better)' : '(Model 2 better)'}</p>
+                    <p>Loss Difference: ${data.comparison.loss_diff.toFixed(4)}
+                       ${data.comparison.loss_diff < 0 ? '(Model 1 better)' : '(Model 2 better)'}</p>
+                    <p>Model 1 Parameters: ${data.comparison.model1_params.toLocaleString()}</p>
+                    <p>Model 2 Parameters: ${data.comparison.model2_params.toLocaleString()}</p>
+                `;
+            }
+        }
+
+        async function startTraining() {
+            const statusEl = document.getElementById('status');
+            const trainBtn = document.getElementById('train-btn');
+            
+            trainBtn.disabled = true;
+            statusEl.textContent = 'Training in progress... This may take several minutes.';
+
+            const config = {
+                model1: {
+                    kernels: [
+                        parseInt(document.getElementById('m1-k1').value),
+                        parseInt(document.getElementById('m1-k2').value),
+                        parseInt(document.getElementById('m1-k3').value)
+                    ],
+                    batchSize: parseInt(document.getElementById('m1-batch').value),
+                    epochs: parseInt(document.getElementById('m1-epochs').value),
+                    optimizer: document.getElementById('m1-optimizer').value
+                },
+                model2: {
+                    kernels: [
+                        parseInt(document.getElementById('m2-k1').value),
+                        parseInt(document.getElementById('m2-k2').value),
+                        parseInt(document.getElementById('m2-k3').value)
+                    ],
+                    batchSize: parseInt(document.getElementById('m2-batch').value),
+                    epochs: parseInt(document.getElementById('m2-epochs').value),
+                    optimizer: document.getElementById('m2-optimizer').value
+                }
+            };
+
+            try {
+                const response = await fetch('/train', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(config)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                if (!data) {
+                    throw new Error('No data received from server');
+                }
+
+                updateCharts(data);
+                statusEl.textContent = 'Training completed!';
+            } catch (error) {
+                console.error('Training error:', error);
+                statusEl.textContent = 'Error during training: ' + error.message;
+            } finally {
+                trainBtn.disabled = false;
+            }
+        }
+
+        // Initialize charts on page load
+        document.addEventListener('DOMContentLoaded', initializeCharts);
+    </script>
+</body>
+</html> 

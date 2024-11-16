@@ -1,0 +1,8 @@
+mnist_model_8_8_8.pt
+mnist_model_16_32_64.pt
+session_4_recording.mp4
+*.pyc
+*.pth
+*.gz
+data/mnist/
+*.ipynb
